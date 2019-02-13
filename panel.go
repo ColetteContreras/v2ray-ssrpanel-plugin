@@ -20,16 +20,25 @@ type Panel struct {
 	db                   *DB
 	userModels           []UserModel
 	startAt              time.Time
+	node                 *Node
 }
 
-func NewPanel(gRPCConn *grpc.ClientConn, db *DB, cfg *Config) *Panel {
+func NewPanel(gRPCConn *grpc.ClientConn, db *DB, cfg *Config) (*Panel, error) {
+	node, err := db.GetNode(cfg.NodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	newErrorf("node[%d] traffic rate %.2f", node.ID, node.TrafficRate).AtDebug().WriteToLog()
+
 	return &Panel{
 		Config:               cfg,
 		db:                   db,
 		handlerServiceClient: NewHandlerServiceClient(gRPCConn, cfg.UserConfig.InboundTag),
 		statsServiceClient:   NewStatsServiceClient(gRPCConn),
 		startAt:              time.Now(),
-	}
+		node:                 node,
+	}, nil
 }
 
 func (p *Panel) Start() {
@@ -48,11 +57,10 @@ func (p *Panel) Start() {
 
 func (p *Panel) do() error {
 	var addedUserCount, deletedUserCount, onlineUsers int
-	var uplinkTraffic, downlinkTraffic uint64
-	newError("start jobs").AtDebug().WriteToLog()
+	var uplinkTotal, downlinkTotal uint64
 	defer func() {
-		newError(fmt.Sprintf("+ %d users, - %d users, ↓ %s, ↑ %s, online %d",
-			addedUserCount, deletedUserCount, bytefmt.ByteSize(downlinkTraffic), bytefmt.ByteSize(uplinkTraffic), onlineUsers)).AtWarning().WriteToLog()
+		newErrorf("+ %d users, - %d users, ↓ %s, ↑ %s, online %d",
+			addedUserCount, deletedUserCount, bytefmt.ByteSize(downlinkTotal), bytefmt.ByteSize(uplinkTotal), onlineUsers).AtDebug().WriteToLog()
 	}()
 
 	p.db.DB.Create(&NodeInfo{
@@ -71,13 +79,18 @@ func (p *Panel) do() error {
 	var userIDs []uint
 
 	for _, log := range userTrafficLogs {
+		uplink := p.mulTrafficRate(log.Uplink)
+		downlink := p.mulTrafficRate(log.Downlink)
+
+		uplinkTotal += log.Uplink
+		downlinkTotal += log.Downlink
+
+		log.Traffic = bytefmt.ByteSize(uplink+downlink)
 		p.db.DB.Create(&log)
-		uplinkTraffic += log.Uplink
-		downlinkTraffic += log.Downlink
 
 		userIDs = append(userIDs, log.UserID)
-		uVals += fmt.Sprintf(" WHEN %d THEN u + %d", log.UserID, log.Uplink)
-		dVals += fmt.Sprintf(" WHEN %d THEN d + %d", log.UserID, log.Downlink)
+		uVals += fmt.Sprintf(" WHEN %d THEN u + %d", log.UserID, uplink)
+		dVals += fmt.Sprintf(" WHEN %d THEN d + %d", log.UserID, downlink)
 	}
 
 	if onlineUsers > 0 {
@@ -120,13 +133,16 @@ func (p *Panel) getTraffic() (userTrafficLogs []UserTrafficLog, err error) {
 				Uplink:   uplink,
 				Downlink: downlink,
 				NodeID:   p.NodeID,
-				Rate:     p.TrafficRate,
-				Traffic:  bytefmt.ByteSize(uplink + downlink),
+				Rate:     p.node.TrafficRate,
 			})
 		}
 	}
 
 	return
+}
+
+func (p *Panel) mulTrafficRate(traffic uint64) uint64 {
+	return uint64(p.node.TrafficRate * float64(traffic))
 }
 
 func (p *Panel) syncUser() (addedUserCount, deletedUserCount int, err error) {
@@ -163,6 +179,7 @@ func (p *Panel) syncUser() (addedUserCount, deletedUserCount int, err error) {
 				return
 			}
 			deletedUserCount++
+			newErrorf("Deleted user: id=%d, VmessID=%s, Email=%s", userModel.ID, userModel.VmessID, userModel.Email).AtDebug().WriteToLog()
 		}
 	}
 
@@ -173,6 +190,7 @@ func (p *Panel) syncUser() (addedUserCount, deletedUserCount int, err error) {
 		}
 		p.userModels = append(p.userModels, userModel)
 		addedUserCount++
+		newErrorf("Added user: id=%d, VmessID=%s, Email=%s", userModel.ID, userModel.VmessID, userModel.Email).AtDebug().WriteToLog()
 	}
 
 	return

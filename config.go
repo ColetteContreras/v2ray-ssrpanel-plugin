@@ -3,11 +3,12 @@ package v2ray_ssrpanel_plugin
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	flag "github.com/spf13/pflag"
 	"v2ray.com/core/common/errors"
 	"v2ray.com/core/common/platform"
 	"v2ray.com/core/common/protocol"
@@ -18,8 +19,12 @@ import (
 
 var (
 	commandLine = flag.NewFlagSet(os.Args[0]+"-plugin-ssrpanel", flag.ContinueOnError)
+
 	configFile = commandLine.String("config", "", "Config file for V2Ray.")
+	_          = commandLine.Bool("version", false, "Show current version of V2Ray.")
 	test       = commandLine.Bool("test", false, "Test config file only, without launching V2Ray server.")
+	_          = commandLine.String("format", "json", "Format of input file.")
+	_          = commandLine.Bool("plugin", false, "True to load plugins.")
 )
 
 type UserConfig struct {
@@ -52,11 +57,9 @@ func (c *UserConfig) UnmarshalJSON(data []byte) error {
 type Config struct {
 	NodeID      uint         `json:"nodeId"`
 	CheckRate   int          `json:"checkRate"`
-	TrafficRate float64      `json:"trafficRate"`
 	MySQL       *MySQLConfig `json:"mysql"`
 	UserConfig  *UserConfig  `json:"user"`
-	GRPCAddr    string       `json:"gRPCAddr"`
-	v2rayConfig   *conf.Config
+	v2rayConfig *conf.Config
 }
 
 func getConfig() (*Config, error) {
@@ -78,9 +81,61 @@ func getConfig() (*Config, error) {
 	}
 	if cfg.SSRPanel != nil {
 		cfg.SSRPanel.v2rayConfig = cfg.Config
+		if err = checkCfg(cfg.SSRPanel); err != nil {
+			return nil, err
+		}
 	}
 
 	return cfg.SSRPanel, err
+}
+
+func checkCfg(cfg *Config) error {
+
+	if cfg.v2rayConfig.Api == nil {
+		return errors.New("Api must be set")
+	}
+
+	apiTag := cfg.v2rayConfig.Api.Tag
+	if len(apiTag) == 0 {
+		return errors.New("Api tag can't be empty")
+	}
+
+	services := cfg.v2rayConfig.Api.Services
+	if !InStr("HandlerService", services) {
+		return errors.New("Api service, HandlerService, must be enabled")
+	}
+	if !InStr("StatsService", services) {
+		return errors.New("Api service, StatsService, must be enabled")
+	}
+
+	if cfg.v2rayConfig.Stats == nil {
+		return errors.New("Stats must be enabled")
+	}
+
+	if apiInbound := getInboundConfigByTag(apiTag, cfg.v2rayConfig.InboundConfigs); apiInbound == nil {
+		return errors.New(fmt.Sprintf("Miss an inbound tagged %s", apiTag))
+	} else if apiInbound.Protocol != "dokodemo-door" {
+		return errors.New(fmt.Sprintf("The protocol of inbound tagged %s must be \"dokodemo-door\"", apiTag))
+	} else {
+		if apiInbound.ListenOn == nil || apiInbound.PortRange == nil {
+			return errors.New(fmt.Sprintf("Fields, \"listen\" and \"port\", of inbound tagged %s must be set", apiTag))
+		}
+	}
+
+	if inbound := getInboundConfigByTag(cfg.UserConfig.InboundTag, cfg.v2rayConfig.InboundConfigs); inbound == nil {
+		return errors.New(fmt.Sprintf("Miss an inbound tagged %s", cfg.UserConfig.InboundTag))
+	}
+
+	return nil
+}
+
+func getInboundConfigByTag(apiTag string, inbounds []conf.InboundDetourConfig) *conf.InboundDetourConfig {
+	for _, inbound := range inbounds {
+		if inbound.Tag == apiTag {
+			return &inbound
+		}
+	}
+	return nil
 }
 
 func getConfigFilePath() string {

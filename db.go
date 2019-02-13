@@ -64,6 +64,15 @@ func (l *NodeInfo) BeforeCreate(scope *gorm.Scope) error {
 	return nil
 }
 
+type Node struct {
+	ID          uint `gorm:"primary_key"`
+	TrafficRate float64
+}
+
+func (*Node) TableName() string {
+	return "ss_node"
+}
+
 type DB struct {
 	DB *gorm.DB
 }
@@ -72,4 +81,10 @@ func (db *DB) GetAllUsers() ([]UserModel, error) {
 	users := make([]UserModel, 0)
 	db.DB.Select("id, vmess_id, username").Where("enable = 1 AND u + d < transfer_enable").Find(&users)
 	return users, nil
+}
+
+func (db *DB) GetNode(id uint) (*Node, error) {
+	node := Node{}
+	err := db.DB.First(&node, id).Error
+	return &node, err
 }

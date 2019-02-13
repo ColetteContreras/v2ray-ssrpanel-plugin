@@ -1,4 +1,4 @@
-# a V2ray plugin for SSRPanel
+# A buildin V2ray plugin for SSRPanel
 
 Only one thing user should do is that setting up the database connection, without doing that user needn't do anything!
 
@@ -6,6 +6,31 @@ Only one thing user should do is that setting up the database connection, withou
 
 - Sync user from SSRPanel database to v2ray
 - Log user traffic
+
+### Benefits
+
+- No other requirements
+  - It's  able to run if you could launch v2ray core
+- Less memory usage
+  - It just takes about 5MB to 10MB memories more than v2ray core
+  - Small RAM VPS would be joyful
+- Simplicity configuration
+
+### Install on Linux
+
+you may want to see docs, all the things as same as the official docs except install command.
+
+[V2ray installation](https://www.v2ray.com/en/welcome/install.html)
+
+```
+curl -L -s https://raw.githubusercontent.com/ColetteContreras/v2ray-ssrpanel-plugin/master/install-release.sh | sudo bash
+```
+
+#### Uninstall
+
+```
+curl -L -s https://raw.githubusercontent.com/ColetteContreras/v2ray-ssrpanel-plugin/master/uninstall.sh | sudo bash
+```
 
 ### V2ray Configuration demo
 
@@ -60,16 +85,11 @@ Only one thing user should do is that setting up the database connection, withou
     }
   },
 
-
   "ssrpanel": {
     // Node id on your SSR Panel
     "nodeId": 1,
     // every N seconds
     "checkRate": 60,
-    // traffic rate
-    "trafficRate": 1.0,
-    // gRPC address
-    "gRPCAddr": "127.0.0.1:10085",
     // user config
     "user": {
       // inbound tag, which inbound you would like add user to
@@ -93,8 +113,16 @@ Only one thing user should do is that setting up the database connection, withou
 }
 ```
 
+### Contributing
+
+Read [WiKi](https://github.com/ColetteContreras/v2ray-ssrpanel-plugin/wiki) carefully before submitting issues.
+
+- Test and [report bugs](https://github.com/ColetteContreras/v2ray-ssrpanel-plugin/issues)
+- Share your needs/experiences in [github issues](https://github.com/ColetteContreras/v2ray-ssrpanel-plugin/issues)
+- Enhance documentation
+- Contribute code by sending PR
+
 ### References
 
 - [V2ray](https://github.com/v2ray/v2ray-core)
 - [SSRPanel](https://github.com/ssrpanel/SSRPanel)
-- [Go Plugin Package](https://golang.org/pkg/plugin)
