@@ -47,6 +47,23 @@ func (l *NodeOnlineLog) BeforeCreate(scope *gorm.Scope) error {
 	return nil
 }
 
+type NodeIP struct {
+	ID        uint `gorm:"primary_key"`
+	NodeID    uint
+	UserID    uint
+	IPList   string `gorm:"column:ip"`
+	CreatedAt int64
+}
+
+func (*NodeIP) TableName() string {
+	return "ss_node_ip"
+}
+
+func (n *NodeIP) BeforeCreate(scope *gorm.Scope) error {
+	n.CreatedAt = time.Now().Unix()
+	return nil
+}
+
 type NodeInfo struct {
 	ID      uint `gorm:"primary_key"`
 	NodeID  uint

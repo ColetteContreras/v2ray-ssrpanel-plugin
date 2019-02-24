@@ -55,11 +55,12 @@ func (c *UserConfig) UnmarshalJSON(data []byte) error {
 }
 
 type Config struct {
-	NodeID      uint         `json:"nodeId"`
-	CheckRate   int          `json:"checkRate"`
-	MySQL       *MySQLConfig `json:"mysql"`
-	UserConfig  *UserConfig  `json:"user"`
-	v2rayConfig *conf.Config
+	NodeID             uint         `json:"nodeId"`
+	CheckRate          int          `json:"checkRate"`
+	MySQL              *MySQLConfig `json:"mysql"`
+	UserConfig         *UserConfig  `json:"user"`
+	IgnoreEmptyVmessID bool         `json:"ignoreEmptyVmessID"`
+	v2rayConfig        *conf.Config
 }
 
 func getConfig() (*Config, error) {

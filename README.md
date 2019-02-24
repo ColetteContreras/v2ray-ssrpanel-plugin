@@ -90,6 +90,8 @@ curl -L -s https://raw.githubusercontent.com/ColetteContreras/v2ray-ssrpanel-plu
     "nodeId": 1,
     // every N seconds
     "checkRate": 60,
+    // change this to true if you want to ignore users which has an empty vmess_id
+    "ignoreEmptyVmessID": false,
     // user config
     "user": {
       // inbound tag, which inbound you would like add user to
